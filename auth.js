@@ -1,23 +1,15 @@
 // 팀 일정 관리 - 비밀번호 보호
-// 비밀번호를 변경하려면 아래 HASH 값을 교체하세요.
 // 비밀번호: mediaspace2026
 
 (function() {
-    const PASSWORD_HASH = 'd979b288646751a71ec990e960d8a8ee9f172ed2cbce89136a01476d50cf67f0';
+    const PASSWORD = atob('bWVkaWFzcGFjZTIwMjY='); // base64 인코딩
     const SESSION_KEY = 'team_auth_session';
     const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8시간
-
-    async function sha256(text) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
-        const hash = await crypto.subtle.digest('SHA-256', data);
-        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
 
     function checkSession() {
         try {
             const session = JSON.parse(localStorage.getItem(SESSION_KEY));
-            if (session && session.hash === PASSWORD_HASH && (Date.now() - session.time) < SESSION_DURATION) {
+            if (session && session.token === btoa(PASSWORD) && (Date.now() - session.time) < SESSION_DURATION) {
                 return true;
             }
         } catch {}
@@ -25,12 +17,11 @@
     }
 
     function saveSession() {
-        localStorage.setItem(SESSION_KEY, JSON.stringify({ hash: PASSWORD_HASH, time: Date.now() }));
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ token: btoa(PASSWORD), time: Date.now() }));
     }
 
-    if (checkSession()) return; // 이미 인증됨
+    if (checkSession()) return;
 
-    // 페이지 내용 숨기기
     document.documentElement.style.visibility = 'hidden';
 
     window.addEventListener('DOMContentLoaded', function() {
@@ -68,10 +59,9 @@
         </div>`;
 
         document.getElementById('authPass').focus();
-        document.getElementById('authBtn').addEventListener('click', async function() {
+        document.getElementById('authBtn').addEventListener('click', function() {
             const input = document.getElementById('authPass').value;
-            const hash = await sha256(input);
-            if (hash === PASSWORD_HASH) {
+            if (input === PASSWORD) {
                 saveSession();
                 location.reload();
             } else {
