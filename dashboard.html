@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>팀 통합 대시보드</title>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1500px; margin: 0 auto; }
+
+        header {
+            background: linear-gradient(135deg, #2d3561 0%, #1e2140 100%);
+            color: white; padding: 24px 32px; border-radius: 14px;
+            margin-bottom: 20px; display: flex;
+            justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+        }
+        header h1 { font-size: 22px; }
+        header .subtitle { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+        .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .header-actions button, .header-actions a button {
+            padding: 10px 18px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 13px; font-weight: 500;
+        }
+        .btn-import { background: #667eea; color: white; }
+        .btn-import:hover { background: #5a6fd6; }
+        .btn-export { background: #28a745; color: white; }
+        .btn-export:hover { background: #22943d; }
+        .btn-member-page { background: rgba(255,255,255,0.15); color: white; }
+        .btn-member-page:hover { background: rgba(255,255,255,0.25); }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex; gap: 4px; margin-bottom: 20px;
+            background: white; padding: 6px; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 15px; font-weight: 600;
+            background: transparent; color: #888; transition: all 0.2s;
+        }
+        .tab-btn.active { background: #2d3561; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Stats */
+        .stats {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white; padding: 16px 20px; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #333; }
+        .stat-card .stat-value.red { color: #c62828; }
+        .stat-card .stat-value.blue { color: #1565c0; }
+        .stat-card .stat-label { font-size: 12px; color: #999; margin-top: 2px; }
+
+        .week-nav {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 20px; background: white; padding: 14px 20px;
+            border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .week-nav button {
+            background: #2d3561; color: white; border: none;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;
+        }
+        .week-nav button:hover { background: #3d4571; }
+        .week-nav span { font-size: 15px; font-weight: 600; color: #333; }
+
+        .filter-bar { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px;
+            background: white; cursor: pointer; font-size: 12px;
+        }
+        .filter-btn.active { background: #2d3561; color: white; border-color: #2d3561; }
+
+        /* Schedule table */
+        .schedule-wrapper {
+            overflow-x: auto; border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        table { width: 100%; border-collapse: collapse; background: white; min-width: 1000px; }
+        thead th {
+            background: #f8f9fa; padding: 14px 10px; text-align: center;
+            font-weight: 600; font-size: 14px; color: #495057;
+            border-bottom: 2px solid #dee2e6; position: sticky; top: 0; z-index: 10;
+        }
+        thead th:first-child { width: 160px; text-align: left; padding-left: 20px; }
+        thead th.today { background: #2d3561; color: white; }
+        thead th.sat { color: #1976d2; }
+        thead th.sun { color: #dc3545; }
+        tbody tr { transition: background 0.15s; }
+        tbody tr:hover { background: #fafaff; }
+        tbody tr:not(:last-child) td { border-bottom: 1px solid #f0f0f0; }
+        td { padding: 10px 8px; vertical-align: top; text-align: center; }
+        td:first-child { text-align: left; padding-left: 20px; }
+
+        .member-cell { display: flex; align-items: center; gap: 10px; }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 15px; flex-shrink: 0;
+        }
+        .member-info .name { font-weight: 600; font-size: 14px; color: #333; }
+        .member-info .role { font-size: 11px; color: #999; }
+        .remove-member-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 13px; color: #ccc; margin-left: auto; padding: 2px 6px;
+        }
+        .remove-member-btn:hover { color: #dc3545; }
+
+        .tag {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 11px; font-weight: 500; margin: 2px; white-space: nowrap;
+        }
+        .tag-work { background: #e3f2fd; color: #1565c0; }
+        .tag-as { background: #fff3e0; color: #e65100; }
+        .tag-leave { background: #e8f5e9; color: #2e7d32; }
+
+        .empty-row { text-align: center; padding: 60px 20px; color: #bbb; }
+
+        /* 발주 통합 */
+        .order-stats {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .order-stat-card {
+            background: white; padding: 20px; border-radius: 12px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        }
+        .order-stat-card .label { font-size: 13px; color: #888; margin-bottom: 6px; }
+        .order-stat-card .value { font-size: 26px; font-weight: 700; color: #333; }
+        .order-stat-card .value.total { color: #c62828; }
+
+        .order-table-wrap {
+            background: white; border-radius: 12px; padding: 20px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06); margin-bottom: 16px;
+        }
+        .order-table-wrap h3 { font-size: 16px; color: #333; margin-bottom: 16px; }
+
+        .otable { width: 100%; border-collapse: collapse; }
+        .otable th {
+            background: #f8f9fa; padding: 12px; text-align: left;
+            font-size: 13px; color: #666; border-bottom: 2px solid #eee;
+        }
+        .otable td {
+            padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px;
+        }
+        .otable .amount { text-align: right; font-weight: 600; color: #1565c0; }
+        .otable .subtotal-row td {
+            background: #f0f4ff; font-weight: 600; border-top: 1px solid #ddd;
+        }
+        .otable .grand-total-row td {
+            background: #fff8f8; font-weight: 700; font-size: 16px;
+            border-top: 3px solid #333;
+        }
+        .otable .grand-total-row .amount { color: #c62828; font-size: 18px; }
+
+        .member-badge {
+            display: inline-block; padding: 2px 10px; border-radius: 10px;
+            font-size: 12px; font-weight: 500; color: white;
+        }
+
+        .no-data { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
+
+        .legend {
+            display: flex; gap: 14px; flex-wrap: wrap; margin-top: 16px;
+            padding: 14px 20px; background: white; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .import-zone {
+            border: 2px dashed #ccc; border-radius: 12px; padding: 40px;
+            text-align: center; color: #aaa; margin-bottom: 20px; display: none;
+        }
+        .import-zone.active { display: block; }
+        .import-zone.dragover { border-color: #667eea; background: #f0f2ff; color: #667eea; }
+        input[type=file] { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>📊 팀 통합 대시보드</h1>
+                <div class="subtitle">팀원 일정 + 발주 계획을 한눈에 확인</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn-import" onclick="toggleImport()">📥 팀원 데이터 가져오기</button>
+                <button class="btn-export" onclick="exportAll()">💾 전체 저장</button>
+                <button class="btn-export" onclick="importAllData()">📂 전체 불러오기</button>
+                <a href="member.html" style="text-decoration:none"><button class="btn-member-page">✏️ 팀원 입력 페이지</button></a>
+            </div>
+        </header>
+
+        <div class="import-zone" id="importZone">
+            <p>📁 팀원이 내보낸 JSON 파일을 여기에 드래그하거나</p>
+            <button class="btn-import" onclick="document.getElementById('fileInput').click()" style="font-size:14px;padding:10px 24px;">파일 선택</button>
+            <input type="file" id="fileInput" accept=".json" multiple onchange="handleFiles(this.files)">
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('schedule')">📅 주간 일정</button>
+            <button class="tab-btn" onclick="switchTab('orders')">🧾 발주 현황</button>
+        </div>
+
+        <!-- 일정 탭 -->
+        <div class="tab-content active" id="tab-schedule">
+            <div class="stats" id="stats"></div>
+            <div class="week-nav">
+                <button onclick="changeWeek(-1)">◀ 이전</button>
+                <span id="weekLabel"></span>
+                <button onclick="changeWeek(1)">다음 ▶</button>
+                <button onclick="goToday()">오늘</button>
+                <div class="filter-bar">
+                    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">전체</button>
+                    <button class="filter-btn" data-filter="work" onclick="setFilter('work')">업무</button>
+                    <button class="filter-btn" data-filter="as" onclick="setFilter('as')">AS</button>
+                    <button class="filter-btn" data-filter="leave" onclick="setFilter('leave')">휴가</button>
+                </div>
+            </div>
+            <div class="schedule-wrapper">
+                <table><thead><tr id="headerRow"></tr></thead><tbody id="scheduleBody"></tbody></table>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#e3f2fd; border:1px solid #90caf9;"></div> 업무</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#fff3e0; border:1px solid #ffcc80;"></div> AS</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9; border:1px solid #a5d6a7;"></div> 휴가</div>
+            </div>
+        </div>
+
+        <!-- 발주 현황 탭 -->
+        <div class="tab-content" id="tab-orders">
+            <div class="order-stats" id="orderStats"></div>
+
+            <div class="order-table-wrap">
+                <h3>📦 팀 전체 발주 현황</h3>
+                <div id="orderTableArea"></div>
+            </div>
+
+            <div class="order-table-wrap">
+                <h3>🏢 협력업체별 집계</h3>
+                <div id="vendorSummaryArea"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DAYS = ['월','화','수','목','금','토','일'];
+        const COLORS = ['#667eea','#e91e63','#ff9800','#4caf50','#00bcd4','#9c27b0','#f44336','#3f51b5','#009688','#ff5722'];
+        const TAG_CLASS = { work:'tag-work', as:'tag-as', leave:'tag-leave' };
+        const TYPE_LABEL = { work:'업무', as:'AS', leave:'휴가' };
+
+        let currentWeekStart = getMonday(new Date());
+        let teamData = loadTeamData();
+        let activeFilter = 'all';
+
+        function getMonday(d) {
+            const date = new Date(d);
+            const day = date.getDay();
+            date.setDate(date.getDate() - day + (day===0?-6:1));
+            date.setHours(0,0,0,0);
+            return date;
+        }
+        function dk(d) { return d.toISOString().slice(0,10); }
+        function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
+        function getDateForDay(i) { const d = new Date(currentWeekStart); d.setDate(d.getDate()+i); return d; }
+        function formatNumber(n) { return Number(n).toLocaleString('ko-KR'); }
+
+        function loadTeamData() {
+            try {
+                const saved = localStorage.getItem('dashboard_teamData_v2');
+                if (saved) return JSON.parse(saved);
+            } catch {}
+            // Try loading from individual members
+            const members = JSON.parse(localStorage.getItem('team_members') || '[]');
+            const data = { members: [], schedules: {}, orders: {} };
+            members.forEach(m => {
+                const d = localStorage.getItem(`data_${m.name}`);
+                if (d) {
+                    const parsed = JSON.parse(d);
+                    data.members.push(m);
+                    data.schedules[m.name] = parsed.schedule || {};
+                    data.orders[m.name] = parsed.orders || [];
+                }
+            });
+            return data;
+        }
+        function saveTeamData() {
+            localStorage.setItem('dashboard_teamData_v2', JSON.stringify(teamData));
+        }
+
+        // Tabs
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', tab==='schedule'?i===0:i===1));
+            document.getElementById('tab-schedule').classList.toggle('active', tab==='schedule');
+            document.getElementById('tab-orders').classList.toggle('active', tab==='orders');
+            if (tab==='orders') renderOrders();
+        }
+
+        function changeWeek(dir) { currentWeekStart.setDate(currentWeekStart.getDate()+dir*7); renderSchedule(); }
+        function goToday() { currentWeekStart = getMonday(new Date()); renderSchedule(); }
+        function setFilter(f) {
+            activeFilter = f;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter===f));
+            renderSchedule();
+        }
+
+        function renderSchedule() {
+            const end = new Date(currentWeekStart); end.setDate(end.getDate()+6);
+            document.getElementById('weekLabel').textContent =
+                `${currentWeekStart.getFullYear()}년 ${fmt(currentWeekStart)} ~ ${fmt(end)}`;
+            const today = new Date(); today.setHours(0,0,0,0);
+
+            // Stats
+            const todayKey = dk(today);
+            let total = teamData.members.length, todayLeave = 0, todayAS = 0;
+            teamData.members.forEach(m => {
+                const tasks = (teamData.schedules[m.name]||{})[todayKey] || [];
+                if (tasks.some(t=>t.type==='leave')) todayLeave++;
+                if (tasks.some(t=>t.type==='as')) todayAS++;
+            });
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">전체 팀원</div></div>
+                <div class="stat-card"><div class="stat-value">${total-todayLeave}</div><div class="stat-label">오늘 출근</div></div>
+                <div class="stat-card"><div class="stat-value">${todayAS}</div><div class="stat-label">오늘 AS</div></div>
+                <div class="stat-card"><div class="stat-value">${todayLeave}</div><div class="stat-label">오늘 휴가</div></div>`;
+
+            // Header
+            const hr = document.getElementById('headerRow');
+            hr.innerHTML = '<th>팀원</th>';
+            DAYS.forEach((day,i) => {
+                const date = getDateForDay(i);
+                const isToday = date.getTime()===today.getTime();
+                hr.innerHTML += `<th class="${isToday?'today':''} ${i===5?'sat':''} ${i===6?'sun':''}">${day} (${fmt(date)})</th>`;
+            });
+
+            // Body
+            const body = document.getElementById('scheduleBody');
+            if (teamData.members.length===0) {
+                body.innerHTML = `<tr><td colspan="8" class="empty-row">
+                    <p>📭 가져온 팀원 데이터가 없습니다</p>
+                    <p style="font-size:13px;margin-top:8px">"팀원 데이터 가져오기"로 JSON 파일을 불러오세요</p>
+                </td></tr>`;
+                return;
+            }
+            body.innerHTML = '';
+            teamData.members.forEach((member, mIdx) => {
+                const tr = document.createElement('tr');
+                const color = COLORS[mIdx % COLORS.length];
+                const schedule = teamData.schedules[member.name] || {};
+
+                const nameTd = document.createElement('td');
+                nameTd.innerHTML = `<div class="member-cell">
+                    <div class="avatar" style="background:${color}">${member.name.charAt(0)}</div>
+                    <div class="member-info"><div class="name">${esc(member.name)}</div><div class="role">${esc(member.role||'')}</div></div>
+                    <button class="remove-member-btn" onclick="removeMember(${mIdx})" title="제거">✕</button>
+                </div>`;
+                tr.appendChild(nameTd);
+
+                DAYS.forEach((_,i) => {
+                    const td = document.createElement('td');
+                    let tasks = schedule[dk(getDateForDay(i))] || [];
+                    if (activeFilter!=='all') tasks = tasks.filter(t=>t.type===activeFilter);
+                    let html = '';
+                    tasks.forEach(t => {
+                        html += `<span class="tag ${TAG_CLASS[t.type]}">${esc(t.content)||TYPE_LABEL[t.type]}</span>`;
+                    });
+                    td.innerHTML = html;
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+        }
+
+        // 발주 현황
+        function renderOrders() {
+            let allOrders = [];
+            let grandTotal = 0;
+            const vendorMap = {};
+
+            teamData.members.forEach((m, mIdx) => {
+                const orders = teamData.orders[m.name] || [];
+                orders.forEach(o => {
+                    allOrders.push({ ...o, memberName: m.name, memberIdx: mIdx });
+                    grandTotal += o.amount;
+                    if (!vendorMap[o.vendor]) vendorMap[o.vendor] = { total: 0, orders: [] };
+                    vendorMap[o.vendor].total += o.amount;
+                    vendorMap[o.vendor].orders.push({ ...o, memberName: m.name });
+                });
+            });
+
+            const vendorCount = Object.keys(vendorMap).length;
+            const orderCount = allOrders.length;
+
+            // Stats
+            document.getElementById('orderStats').innerHTML = `
+                <div class="order-stat-card"><div class="label">총 발주 건수</div><div class="value">${orderCount}건</div></div>
+                <div class="order-stat-card"><div class="label">협력업체 수</div><div class="value">${vendorCount}곳</div></div>
+                <div class="order-stat-card"><div class="label">총 발주 금액</div><div class="value total">${formatNumber(grandTotal)}원</div></div>`;
+
+            // All orders table
+            const area = document.getElementById('orderTableArea');
+            if (allOrders.length === 0) {
+                area.innerHTML = '<div class="no-data">등록된 발주가 없습니다</div>';
+            } else {
+                let rows = '';
+                let memberSubtotals = {};
+                teamData.members.forEach((m, mIdx) => {
+                    const orders = teamData.orders[m.name] || [];
+                    if (orders.length === 0) return;
+                    const color = COLORS[mIdx % COLORS.length];
+                    let subtotal = 0;
+                    orders.forEach((o, i) => {
+                        subtotal += o.amount;
+                        rows += `<tr>
+                            ${i===0 ? `<td rowspan="${orders.length}" style="vertical-align:middle"><span class="member-badge" style="background:${color}">${esc(m.name)}</span></td>` : ''}
+                            <td>${esc(o.vendor)}</td>
+                            <td>${esc(o.description)}</td>
+                            <td class="amount">${formatNumber(o.amount)}원</td>
+                            <td>${o.date||''}</td>
+                        </tr>`;
+                    });
+                    rows += `<tr class="subtotal-row">
+                        <td colspan="3" style="text-align:right">${esc(m.name)} 소계</td>
+                        <td class="amount">${formatNumber(subtotal)}원</td>
+                        <td></td>
+                    </tr>`;
+                });
+                rows += `<tr class="grand-total-row">
+                    <td colspan="4" style="text-align:right">총 발주 합계</td>
+                    <td class="amount">${formatNumber(grandTotal)}원</td>
+                    <td></td>
+                </tr>`;
+                area.innerHTML = `<table class="otable">
+                    <thead><tr>
+                        <th style="width:100px">팀원</th>
+                        <th>협력업체</th>
+                        <th>발주 내용</th>
+                        <th style="text-align:right;width:140px">금액</th>
+                        <th style="width:100px">등록일</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+            }
+
+            // Vendor summary
+            const vArea = document.getElementById('vendorSummaryArea');
+            if (vendorCount === 0) {
+                vArea.innerHTML = '<div class="no-data">데이터가 없습니다</div>';
+            } else {
+                const sorted = Object.entries(vendorMap).sort((a,b) => b[1].total - a[1].total);
+                let vRows = '';
+                sorted.forEach(([vendor, data], i) => {
+                    const pct = grandTotal > 0 ? ((data.total/grandTotal)*100).toFixed(1) : 0;
+                    vRows += `<tr>
+                        <td>${i+1}</td>
+                        <td><strong>${esc(vendor)}</strong></td>
+                        <td>${data.orders.length}건</td>
+                        <td>${data.orders.map(o => esc(o.memberName)).filter((v,i,a)=>a.indexOf(v)===i).join(', ')}</td>
+                        <td class="amount">${formatNumber(data.total)}원</td>
+                        <td>
+                            <div style="background:#eee;border-radius:4px;height:20px;width:100%;position:relative;">
+                                <div style="background:#667eea;border-radius:4px;height:100%;width:${pct}%;"></div>
+                            </div>
+                            <span style="font-size:11px;color:#888;">${pct}%</span>
+                        </td>
+                    </tr>`;
+                });
+                vRows += `<tr class="grand-total-row">
+                    <td colspan="4" style="text-align:right">전체 합계</td>
+                    <td class="amount">${formatNumber(grandTotal)}원</td>
+                    <td></td>
+                </tr>`;
+                vArea.innerHTML = `<table class="otable">
+                    <thead><tr>
+                        <th style="width:40px">No</th>
+                        <th>협력업체</th>
+                        <th style="width:80px">건수</th>
+                        <th>발주 팀원</th>
+                        <th style="text-align:right;width:140px">합계 금액</th>
+                        <th style="width:160px">비중</th>
+                    </tr></thead>
+                    <tbody>${vRows}</tbody>
+                </table>`;
+            }
+        }
+
+        function removeMember(idx) {
+            const name = teamData.members[idx].name;
+            if (!confirm(`"${name}" 팀원을 제거하시겠습니까?`)) return;
+            delete teamData.schedules[name];
+            delete teamData.orders[name];
+            teamData.members.splice(idx, 1);
+            saveTeamData(); renderSchedule();
+        }
+
+        // Import / Export
+        function toggleImport() { document.getElementById('importZone').classList.toggle('active'); }
+
+        const zone = document.getElementById('importZone');
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+        function handleFiles(files) {
+            let imported = 0;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (json.member && (json.schedule || json.orders)) {
+                            importMember(json.member, json.schedule||{}, json.orders||[]);
+                            imported++;
+                        } else if (json.members && json.schedules) {
+                            json.members.forEach(m => {
+                                importMember(m, (json.schedules||{})[m.name]||{}, (json.orders||{})[m.name]||[]);
+                            });
+                            imported += json.members.length;
+                        }
+                        if (imported>0) { saveTeamData(); renderSchedule(); renderOrders(); alert(`${imported}명의 데이터를 가져왔습니다.`); }
+                    } catch(err) { alert('파일 오류: '+file.name); }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function importMember(member, schedule, orders) {
+            if (!teamData.orders) teamData.orders = {};
+            const idx = teamData.members.findIndex(m => m.name === member.name);
+            if (idx >= 0) {
+                const existing = teamData.schedules[member.name] || {};
+                Object.keys(schedule).forEach(k => existing[k] = schedule[k]);
+                teamData.schedules[member.name] = existing;
+                teamData.orders[member.name] = orders;
+                teamData.members[idx].role = member.role || teamData.members[idx].role;
+            } else {
+                teamData.members.push({ name: member.name, role: member.role||'' });
+                teamData.schedules[member.name] = schedule;
+                teamData.orders[member.name] = orders;
+            }
+        }
+
+        function exportAll() {
+            const blob = new Blob([JSON.stringify(teamData, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `팀전체_${dk(new Date())}.json`;
+            a.click();
+        }
+        function importAllData() {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = '.json';
+            input.onchange = () => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (json.members) { teamData = json; saveTeamData(); renderSchedule(); renderOrders(); alert('불러왔습니다.'); }
+                    } catch { alert('파일 오류'); }
+                };
+                reader.readAsText(input.files[0]);
+            };
+            input.click();
+        }
+
+        function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+        renderSchedule();
+    </script>
+</body>
+</html>

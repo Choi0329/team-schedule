@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 주간 일정 입력</title>
+    <script src="auth.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        .login-screen {
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 20px;
+        }
+        .login-card {
+            background: white; border-radius: 16px; padding: 40px;
+            width: 400px; max-width: 100%;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08); text-align: center;
+        }
+        .login-card h2 { color: #333; margin-bottom: 8px; }
+        .login-card p { color: #888; margin-bottom: 24px; font-size: 14px; }
+        .login-card input, .login-card select {
+            width: 100%; padding: 12px 16px;
+            border: 2px solid #e9ecef; border-radius: 10px;
+            font-size: 15px; margin-bottom: 12px; outline: none;
+        }
+        .login-card input:focus, .login-card select:focus { border-color: #667eea; }
+        .login-card button {
+            width: 100%; padding: 13px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; border-radius: 10px;
+            font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px;
+        }
+        .login-card button:hover { opacity: 0.9; }
+        .login-card .register-link { margin-top: 16px; font-size: 13px; color: #888; }
+        .login-card .register-link a { color: #667eea; cursor: pointer; text-decoration: none; }
+        #existingMembers { margin-bottom: 16px; }
+
+        .app { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+        .top-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px 28px; border-radius: 12px;
+            margin-bottom: 20px; display: flex;
+            justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .top-bar h1 { font-size: 20px; }
+        .top-bar .user-info { font-size: 14px; opacity: 0.9; }
+        .top-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .top-bar-actions button {
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+        }
+        .top-bar-actions button:hover { background: rgba(255,255,255,0.35); }
+
+        .tab-bar {
+            display: flex; gap: 4px; margin-bottom: 20px;
+            background: white; padding: 6px; border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 15px; font-weight: 600;
+            background: transparent; color: #888; transition: all 0.2s;
+        }
+        .tab-btn.active { background: #667eea; color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .week-nav {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 20px; background: white; padding: 14px 20px;
+            border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .week-nav button {
+            background: #667eea; color: white; border: none;
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px;
+        }
+        .week-nav button:hover { background: #5a6fd6; }
+        .week-nav span { font-size: 15px; font-weight: 600; color: #333; }
+
+        /* Day Cards */
+        .day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .day-card {
+            background: white; border-radius: 12px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06); overflow: hidden;
+        }
+        .day-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.1); }
+        .day-card.today { border: 2px solid #667eea; }
+        .day-card.weekend .day-header { background: #fff0f0; }
+        .day-header {
+            padding: 12px 16px; background: #f8f9fa;
+            font-weight: 600; font-size: 15px; color: #333;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .day-header .date-sub { font-size: 12px; font-weight: 400; color: #999; }
+        .day-header.sat { color: #1976d2; }
+        .day-header.sun { color: #dc3545; }
+        .day-body { padding: 12px; min-height: 80px; }
+
+        .task-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 13px;
+        }
+        .task-item .task-label { flex: 1; }
+        .task-item .task-type-badge {
+            font-size: 11px; padding: 2px 8px; border-radius: 10px;
+            font-weight: 500; flex-shrink: 0;
+        }
+        .task-item .remove-btn {
+            background: none; border: none; cursor: pointer;
+            color: #ccc; font-size: 16px; padding: 0 4px;
+        }
+        .task-item .remove-btn:hover { color: #dc3545; }
+
+        .type-work { background: #e3f2fd; }
+        .type-work .task-type-badge { background: #bbdefb; color: #1565c0; }
+        .type-as { background: #fff3e0; }
+        .type-as .task-type-badge { background: #ffe0b2; color: #e65100; }
+        .type-leave { background: #e8f5e9; }
+        .type-leave .task-type-badge { background: #c8e6c9; color: #2e7d32; }
+
+        .add-task-form {
+            display: flex; gap: 6px; margin-top: 8px;
+        }
+        .add-task-form select {
+            padding: 6px 8px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 12px; outline: none; background: white;
+        }
+        .add-task-form input {
+            flex: 1; padding: 6px 10px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 13px; outline: none; min-width: 0;
+        }
+        .add-task-form input:focus { border-color: #667eea; }
+        .add-task-form button {
+            background: #667eea; color: white; border: none;
+            padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+        }
+
+        /* 발주 계획 */
+        .order-section {
+            background: white; border-radius: 12px; padding: 20px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06); margin-bottom: 16px;
+        }
+        .order-section h3 { font-size: 16px; color: #333; margin-bottom: 16px; }
+
+        .order-form {
+            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: flex-end;
+        }
+        .order-form .field { display: flex; flex-direction: column; gap: 4px; }
+        .order-form .field label { font-size: 12px; color: #888; font-weight: 500; }
+        .order-form .field input {
+            padding: 10px 12px; border: 1px solid #ddd;
+            border-radius: 8px; font-size: 14px; outline: none;
+        }
+        .order-form .field input:focus { border-color: #667eea; }
+        .order-form button {
+            padding: 10px 20px; background: #667eea; color: white;
+            border: none; border-radius: 8px; cursor: pointer;
+            font-size: 14px; font-weight: 500; height: 42px;
+        }
+        .order-form button:hover { background: #5a6fd6; }
+
+        .order-table { width: 100%; border-collapse: collapse; }
+        .order-table th {
+            background: #f8f9fa; padding: 10px 12px; text-align: left;
+            font-size: 13px; color: #666; border-bottom: 2px solid #eee;
+        }
+        .order-table td {
+            padding: 10px 12px; border-bottom: 1px solid #f0f0f0;
+            font-size: 14px; text-align: left;
+        }
+        .order-table .amount { text-align: right; font-weight: 600; color: #1565c0; }
+        .order-table .total-row td {
+            border-top: 2px solid #333; font-weight: 700;
+            font-size: 15px; background: #f8f9fa;
+        }
+        .order-table .total-amount { color: #c62828; font-size: 16px; }
+        .order-table .remove-btn {
+            background: none; border: none; cursor: pointer;
+            color: #ccc; font-size: 15px;
+        }
+        .order-table .remove-btn:hover { color: #dc3545; }
+
+        .no-orders { text-align: center; padding: 30px; color: #bbb; font-size: 14px; }
+
+        .notice {
+            margin-top: 20px; padding: 16px 20px;
+            background: #fffde7; border: 1px solid #fff9c4;
+            border-radius: 10px; font-size: 13px; color: #666; line-height: 1.6;
+        }
+        .notice strong { color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <h2>📋 주간 일정 입력</h2>
+        <p>이름과 직책을 입력하고 시작하세요</p>
+        <div id="existingMembers" style="display:none;">
+            <select id="selectMember" onchange="onSelectMember()">
+                <option value="">-- 기존 팀원 선택 --</option>
+            </select>
+            <div style="margin:12px 0; font-size:13px; color:#aaa;">또는 새로 등록</div>
+        </div>
+        <input type="text" id="loginName" placeholder="이름">
+        <input type="text" id="loginRole" placeholder="직책 (예: 개발자, 디자이너)">
+        <button onclick="login()">시작하기</button>
+        <div class="register-link">
+            관리자이신가요? <a href="dashboard.html">통합 대시보드 →</a>
+        </div>
+    </div>
+</div>
+
+<div class="app" id="app">
+    <div class="top-bar">
+        <div>
+            <h1>📝 내 주간 일정 / 발주 계획</h1>
+            <div class="user-info" id="userInfo"></div>
+        </div>
+        <div class="top-bar-actions">
+            <button onclick="exportMyData()">📤 내 데이터 내보내기</button>
+            <button onclick="logout()">🔄 다른 사람으로 전환</button>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('schedule')">📅 주간 일정</button>
+        <button class="tab-btn" onclick="switchTab('orders')">🧾 발주 계획</button>
+    </div>
+
+    <!-- 주간 일정 탭 -->
+    <div class="tab-content active" id="tab-schedule">
+        <div class="week-nav">
+            <button onclick="changeWeek(-1)">◀ 이전</button>
+            <span id="weekLabel"></span>
+            <button onclick="changeWeek(1)">다음 ▶</button>
+            <button onclick="goToday()" style="margin-left:4px;">오늘</button>
+        </div>
+        <div class="day-cards" id="dayCards"></div>
+    </div>
+
+    <!-- 발주 계획 탭 -->
+    <div class="tab-content" id="tab-orders">
+        <div class="order-section">
+            <h3>📦 발주 등록</h3>
+            <div class="order-form">
+                <div class="field">
+                    <label>협력업체</label>
+                    <input type="text" id="orderVendor" placeholder="업체명" style="width:180px">
+                </div>
+                <div class="field">
+                    <label>발주 내용</label>
+                    <input type="text" id="orderDesc" placeholder="발주 내용" style="width:220px">
+                </div>
+                <div class="field">
+                    <label>발주 금액 (원)</label>
+                    <input type="text" id="orderAmount" placeholder="예: 1500000" style="width:160px" oninput="formatAmountInput(this)" onkeydown="if(event.key==='Enter') addOrder()">
+                </div>
+                <button onclick="addOrder()">+ 추가</button>
+            </div>
+        </div>
+
+        <div class="order-section">
+            <h3>📋 내 발주 목록</h3>
+            <div id="orderList"></div>
+        </div>
+    </div>
+
+    <div class="notice">
+        <strong>💡 사용 방법:</strong><br>
+        1. <strong>주간 일정</strong> 탭에서 업무/AS/휴가 일정을 입력하세요.<br>
+        2. <strong>발주 계획</strong> 탭에서 협력업체와 발주 금액을 등록하세요.<br>
+        3. 상단의 <strong>"내 데이터 내보내기"</strong>를 클릭하면 일정+발주 데이터를 한번에 내보냅니다.<br>
+        4. 관리자에게 전달하면 <strong>통합 대시보드</strong>에서 확인할 수 있습니다.
+    </div>
+</div>
+
+<script>
+    const DAYS = ['월','화','수','목','금','토','일'];
+    const TYPE_LABEL = { work:'업무', as:'AS', leave:'휴가' };
+
+    let currentUser = null;
+    let currentWeekStart = getMonday(new Date());
+    let myData = { schedule: {}, orders: [] };
+
+    function getMonday(d) {
+        const date = new Date(d);
+        const day = date.getDay();
+        date.setDate(date.getDate() - day + (day === 0 ? -6 : 1));
+        date.setHours(0,0,0,0);
+        return date;
+    }
+    function dateKey(d) { return d.toISOString().slice(0,10); }
+    function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
+    function getDateForDay(i) { const d = new Date(currentWeekStart); d.setDate(d.getDate()+i); return d; }
+
+    function formatNumber(n) {
+        return Number(n).toLocaleString('ko-KR');
+    }
+    function parseAmount(str) {
+        return parseInt(String(str).replace(/[^0-9]/g, '')) || 0;
+    }
+    function formatAmountInput(el) {
+        const v = parseAmount(el.value);
+        if (v > 0) el.value = formatNumber(v);
+        else el.value = '';
+    }
+
+    // Tabs
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='schedule'?i===0:i===1)));
+        document.getElementById('tab-schedule').classList.toggle('active', tab==='schedule');
+        document.getElementById('tab-orders').classList.toggle('active', tab==='orders');
+    }
+
+    // Login
+    function loadMembersList() {
+        const members = JSON.parse(localStorage.getItem('team_members') || '[]');
+        if (members.length > 0) {
+            document.getElementById('existingMembers').style.display = 'block';
+            const sel = document.getElementById('selectMember');
+            sel.innerHTML = '<option value="">-- 기존 팀원 선택 --</option>';
+            members.forEach(m => {
+                sel.innerHTML += `<option value="${m.name}" data-role="${m.role}">${m.name} (${m.role})</option>`;
+            });
+        }
+    }
+    function onSelectMember() {
+        const sel = document.getElementById('selectMember');
+        const opt = sel.options[sel.selectedIndex];
+        if (opt.value) {
+            document.getElementById('loginName').value = opt.value;
+            document.getElementById('loginRole').value = opt.dataset.role || '';
+        }
+    }
+    function login() {
+        const name = document.getElementById('loginName').value.trim();
+        const role = document.getElementById('loginRole').value.trim();
+        if (!name) return alert('이름을 입력하세요.');
+        currentUser = { name, role };
+        localStorage.setItem('currentMember', JSON.stringify(currentUser));
+
+        let members = JSON.parse(localStorage.getItem('team_members') || '[]');
+        if (!members.find(m => m.name === name)) {
+            members.push({ name, role });
+            localStorage.setItem('team_members', JSON.stringify(members));
+        }
+
+        const saved = localStorage.getItem(`data_${name}`);
+        myData = saved ? JSON.parse(saved) : { schedule: {}, orders: [] };
+        if (!myData.orders) myData.orders = [];
+        if (!myData.schedule) myData.schedule = {};
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('userInfo').textContent = `${name} · ${role}`;
+        render();
+        renderOrders();
+    }
+    function logout() {
+        saveMyData();
+        currentUser = null;
+        document.getElementById('loginScreen').style.display = '';
+        document.getElementById('app').style.display = 'none';
+        loadMembersList();
+    }
+    function saveMyData() {
+        if (currentUser) localStorage.setItem(`data_${currentUser.name}`, JSON.stringify(myData));
+    }
+
+    // Week nav
+    function changeWeek(dir) { currentWeekStart.setDate(currentWeekStart.getDate()+dir*7); render(); }
+    function goToday() { currentWeekStart = getMonday(new Date()); render(); }
+
+    // Schedule render
+    function render() {
+        const end = new Date(currentWeekStart); end.setDate(end.getDate()+6);
+        document.getElementById('weekLabel').textContent =
+            `${currentWeekStart.getFullYear()}년 ${fmt(currentWeekStart)} ~ ${fmt(end)}`;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const container = document.getElementById('dayCards');
+        container.innerHTML = '';
+
+        DAYS.forEach((dayName, i) => {
+            const date = getDateForDay(i);
+            const dk = dateKey(date);
+            const isToday = date.getTime() === today.getTime();
+            const isSat = i===5, isSun = i===6;
+            const tasks = myData.schedule[dk] || [];
+
+            const card = document.createElement('div');
+            card.className = `day-card${isToday?' today':''}${(isSat||isSun)?' weekend':''}`;
+
+            let tasksHtml = '';
+            tasks.forEach((t,tIdx) => {
+                tasksHtml += `
+                    <div class="task-item type-${t.type}">
+                        <span class="task-type-badge">${TYPE_LABEL[t.type]}</span>
+                        <span class="task-label">${esc(t.content) || TYPE_LABEL[t.type]}</span>
+                        <button class="remove-btn" onclick="removeTask('${dk}',${tIdx})">✕</button>
+                    </div>`;
+            });
+
+            card.innerHTML = `
+                <div class="day-header ${isSat?'sat':isSun?'sun':''}">
+                    <span>${dayName}요일</span>
+                    <span class="date-sub">${date.getMonth()+1}월 ${date.getDate()}일</span>
+                </div>
+                <div class="day-body">
+                    ${tasksHtml}
+                    <div class="add-task-form">
+                        <select id="type_${i}">
+                            <option value="work">업무</option>
+                            <option value="as">AS</option>
+                            <option value="leave">휴가</option>
+                        </select>
+                        <input type="text" id="input_${i}" placeholder="일정 내용" onkeydown="if(event.key==='Enter') addTask(${i})">
+                        <button onclick="addTask(${i})">+</button>
+                    </div>
+                </div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function addTask(dayIdx) {
+        const type = document.getElementById(`type_${dayIdx}`).value;
+        const input = document.getElementById(`input_${dayIdx}`);
+        const content = input.value.trim();
+        const dk = dateKey(getDateForDay(dayIdx));
+        if (!myData.schedule[dk]) myData.schedule[dk] = [];
+        myData.schedule[dk].push({ type, content });
+        saveMyData(); input.value = ''; render();
+    }
+    function removeTask(dk, idx) {
+        myData.schedule[dk].splice(idx, 1);
+        if (myData.schedule[dk].length === 0) delete myData.schedule[dk];
+        saveMyData(); render();
+    }
+
+    // Orders
+    function renderOrders() {
+        const list = document.getElementById('orderList');
+        if (myData.orders.length === 0) {
+            list.innerHTML = '<div class="no-orders">등록된 발주가 없습니다</div>';
+            return;
+        }
+        const total = myData.orders.reduce((s, o) => s + o.amount, 0);
+        let rows = '';
+        myData.orders.forEach((o, i) => {
+            rows += `<tr>
+                <td>${i+1}</td>
+                <td>${esc(o.vendor)}</td>
+                <td>${esc(o.description)}</td>
+                <td class="amount">${formatNumber(o.amount)}원</td>
+                <td>${o.date || ''}</td>
+                <td><button class="remove-btn" onclick="removeOrder(${i})">✕</button></td>
+            </tr>`;
+        });
+        list.innerHTML = `
+            <table class="order-table">
+                <thead><tr>
+                    <th style="width:40px">No</th>
+                    <th>협력업체</th>
+                    <th>발주 내용</th>
+                    <th style="text-align:right">금액</th>
+                    <th style="width:100px">등록일</th>
+                    <th style="width:40px"></th>
+                </tr></thead>
+                <tbody>
+                    ${rows}
+                    <tr class="total-row">
+                        <td colspan="3" style="text-align:right;">합계</td>
+                        <td class="amount total-amount">${formatNumber(total)}원</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tbody>
+            </table>`;
+    }
+
+    function addOrder() {
+        const vendor = document.getElementById('orderVendor').value.trim();
+        const desc = document.getElementById('orderDesc').value.trim();
+        const amount = parseAmount(document.getElementById('orderAmount').value);
+        if (!vendor) return alert('협력업체를 입력하세요.');
+        if (!amount) return alert('발주 금액을 입력하세요.');
+        myData.orders.push({
+            vendor, description: desc, amount,
+            date: new Date().toISOString().slice(0,10)
+        });
+        saveMyData();
+        document.getElementById('orderVendor').value = '';
+        document.getElementById('orderDesc').value = '';
+        document.getElementById('orderAmount').value = '';
+        renderOrders();
+    }
+    function removeOrder(idx) {
+        if (!confirm('이 발주를 삭제하시겠습니까?')) return;
+        myData.orders.splice(idx, 1);
+        saveMyData(); renderOrders();
+    }
+
+    // Export
+    function exportMyData() {
+        const exportObj = {
+            member: currentUser,
+            schedule: myData.schedule,
+            orders: myData.orders,
+            exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `일정_${currentUser.name}_${dateKey(new Date())}.json`;
+        a.click();
+    }
+
+    function esc(str) {
+        const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+    }
+
+    const saved = localStorage.getItem('currentMember');
+    if (saved) { const u = JSON.parse(saved); document.getElementById('loginName').value = u.name; document.getElementById('loginRole').value = u.role||''; }
+    loadMembersList();
+</script>
+</body>
+</html>
