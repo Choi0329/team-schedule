@@ -1,9 +1,9 @@
 // 팀 일정 관리 - 비밀번호 보호
 // 비밀번호를 변경하려면 아래 HASH 값을 교체하세요.
-// 기본 비밀번호: team2024
+// 비밀번호: mediaspace2026
 
 (function() {
-    const PASSWORD_HASH = '5a39bead318f306939acb1d016647be2e38c6501c58571fa37f27b08e8918e97';
+    const PASSWORD_HASH = 'd979b288646751a71ec990e960d8a8ee9f172ed2cbce89136a01476d50cf67f0';
     const SESSION_KEY = 'team_auth_session';
     const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8시간
 
