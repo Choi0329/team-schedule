@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 주간 일정 입력</title>
     <script src="auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background: #f0f2f5; min-height: 100vh; }
@@ -36,6 +38,12 @@
         .login-card .register-link { margin-top: 16px; font-size: 13px; color: #888; }
         .login-card .register-link a { color: #667eea; cursor: pointer; text-decoration: none; }
         #existingMembers { margin-bottom: 16px; }
+        .sync-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 12px;
+            font-size: 11px; font-weight: 500; margin-top: 12px;
+        }
+        .sync-ok { background: #e8f5e9; color: #2e7d32; }
+        .sync-wait { background: #fff3e0; color: #e65100; }
 
         .app { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
 
@@ -48,12 +56,13 @@
         }
         .top-bar h1 { font-size: 20px; }
         .top-bar .user-info { font-size: 14px; opacity: 0.9; }
-        .top-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .top-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .top-bar-actions button {
             background: rgba(255,255,255,0.2); border: none; color: white;
             padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
         }
         .top-bar-actions button:hover { background: rgba(255,255,255,0.35); }
+        .sync-status { font-size: 12px; opacity: 0.8; }
 
         .tab-bar {
             display: flex; gap: 4px; margin-bottom: 20px;
@@ -66,7 +75,6 @@
             background: transparent; color: #888; transition: all 0.2s;
         }
         .tab-btn.active { background: #667eea; color: white; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
@@ -82,7 +90,6 @@
         .week-nav button:hover { background: #5a6fd6; }
         .week-nav span { font-size: 15px; font-weight: 600; color: #333; }
 
-        /* Day Cards */
         .day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
         .day-card {
             background: white; border-radius: 12px;
@@ -123,9 +130,7 @@
         .type-leave { background: #e8f5e9; }
         .type-leave .task-type-badge { background: #c8e6c9; color: #2e7d32; }
 
-        .add-task-form {
-            display: flex; gap: 6px; margin-top: 8px;
-        }
+        .add-task-form { display: flex; gap: 6px; margin-top: 8px; }
         .add-task-form select {
             padding: 6px 8px; border: 1px solid #ddd;
             border-radius: 6px; font-size: 12px; outline: none; background: white;
@@ -140,13 +145,11 @@
             padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
         }
 
-        /* 발주 계획 */
         .order-section {
             background: white; border-radius: 12px; padding: 20px;
             box-shadow: 0 1px 6px rgba(0,0,0,0.06); margin-bottom: 16px;
         }
         .order-section h3 { font-size: 16px; color: #333; margin-bottom: 16px; }
-
         .order-form {
             display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: flex-end;
         }
@@ -162,7 +165,6 @@
             border: none; border-radius: 8px; cursor: pointer;
             font-size: 14px; font-weight: 500; height: 42px;
         }
-        .order-form button:hover { background: #5a6fd6; }
 
         .order-table { width: 100%; border-collapse: collapse; }
         .order-table th {
@@ -184,22 +186,21 @@
             color: #ccc; font-size: 15px;
         }
         .order-table .remove-btn:hover { color: #dc3545; }
-
         .no-orders { text-align: center; padding: 30px; color: #bbb; font-size: 14px; }
 
         .notice {
             margin-top: 20px; padding: 16px 20px;
-            background: #fffde7; border: 1px solid #fff9c4;
-            border-radius: 10px; font-size: 13px; color: #666; line-height: 1.6;
+            background: #e8f5e9; border: 1px solid #c8e6c9;
+            border-radius: 10px; font-size: 13px; color: #2e7d32; line-height: 1.6;
         }
-        .notice strong { color: #333; }
+        .notice strong { color: #1b5e20; }
     </style>
 </head>
 <body>
 
 <div class="login-screen" id="loginScreen">
     <div class="login-card">
-        <h2>📋 주간 일정 입력</h2>
+        <h2>📋 미디어스페이스 시공개발팀</h2>
         <p>이름과 직책을 입력하고 시작하세요</p>
         <div id="existingMembers" style="display:none;">
             <select id="selectMember" onchange="onSelectMember()">
@@ -223,7 +224,7 @@
             <div class="user-info" id="userInfo"></div>
         </div>
         <div class="top-bar-actions">
-            <button onclick="exportMyData()">📤 내 데이터 내보내기</button>
+            <span class="sync-status" id="syncStatus">클라우드 동기화 중...</span>
             <button onclick="logout()">🔄 다른 사람으로 전환</button>
         </div>
     </div>
@@ -233,7 +234,6 @@
         <button class="tab-btn" onclick="switchTab('orders')">🧾 발주 계획</button>
     </div>
 
-    <!-- 주간 일정 탭 -->
     <div class="tab-content active" id="tab-schedule">
         <div class="week-nav">
             <button onclick="changeWeek(-1)">◀ 이전</button>
@@ -244,7 +244,6 @@
         <div class="day-cards" id="dayCards"></div>
     </div>
 
-    <!-- 발주 계획 탭 -->
     <div class="tab-content" id="tab-orders">
         <div class="order-section">
             <h3>📦 발주 등록</h3>
@@ -264,7 +263,6 @@
                 <button onclick="addOrder()">+ 추가</button>
             </div>
         </div>
-
         <div class="order-section">
             <h3>📋 내 발주 목록</h3>
             <div id="orderList"></div>
@@ -272,14 +270,11 @@
     </div>
 
     <div class="notice">
-        <strong>💡 사용 방법:</strong><br>
-        1. <strong>주간 일정</strong> 탭에서 업무/AS/휴가 일정을 입력하세요.<br>
-        2. <strong>발주 계획</strong> 탭에서 협력업체와 발주 금액을 등록하세요.<br>
-        3. 상단의 <strong>"내 데이터 내보내기"</strong>를 클릭하면 일정+발주 데이터를 한번에 내보냅니다.<br>
-        4. 관리자에게 전달하면 <strong>통합 대시보드</strong>에서 확인할 수 있습니다.
+        <strong>☁️ 클라우드 자동 동기화:</strong> 일정과 발주를 입력하면 자동으로 저장됩니다. 별도로 내보내기할 필요 없이 관리자 대시보드에서 바로 확인 가능합니다.
     </div>
 </div>
 
+<script src="firebase-config.js"></script>
 <script>
     const DAYS = ['월','화','수','목','금','토','일'];
     const TYPE_LABEL = { work:'업무', as:'AS', leave:'휴가' };
@@ -298,38 +293,73 @@
     function dateKey(d) { return d.toISOString().slice(0,10); }
     function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
     function getDateForDay(i) { const d = new Date(currentWeekStart); d.setDate(d.getDate()+i); return d; }
-
-    function formatNumber(n) {
-        return Number(n).toLocaleString('ko-KR');
-    }
-    function parseAmount(str) {
-        return parseInt(String(str).replace(/[^0-9]/g, '')) || 0;
-    }
+    function formatNumber(n) { return Number(n).toLocaleString('ko-KR'); }
+    function parseAmount(str) { return parseInt(String(str).replace(/[^0-9]/g, '')) || 0; }
     function formatAmountInput(el) {
         const v = parseAmount(el.value);
-        if (v > 0) el.value = formatNumber(v);
-        else el.value = '';
+        if (v > 0) el.value = formatNumber(v); else el.value = '';
     }
 
-    // Tabs
     function switchTab(tab) {
         document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (tab==='schedule'?i===0:i===1)));
         document.getElementById('tab-schedule').classList.toggle('active', tab==='schedule');
         document.getElementById('tab-orders').classList.toggle('active', tab==='orders');
     }
 
-    // Login
-    function loadMembersList() {
-        const members = JSON.parse(localStorage.getItem('team_members') || '[]');
-        if (members.length > 0) {
-            document.getElementById('existingMembers').style.display = 'block';
-            const sel = document.getElementById('selectMember');
-            sel.innerHTML = '<option value="">-- 기존 팀원 선택 --</option>';
-            members.forEach(m => {
-                sel.innerHTML += `<option value="${m.name}" data-role="${m.role}">${m.name} (${m.role})</option>`;
+    // Firebase 저장/불러오기
+    async function saveToFirebase() {
+        if (!currentUser) return;
+        try {
+            await db.collection('members').doc(currentUser.name).set({
+                name: currentUser.name,
+                role: currentUser.role,
+                schedule: myData.schedule,
+                orders: myData.orders,
+                updatedAt: new Date().toISOString()
             });
+            document.getElementById('syncStatus').textContent = '☁️ 저장 완료';
+            setTimeout(() => {
+                document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
+            }, 2000);
+        } catch (e) {
+            document.getElementById('syncStatus').textContent = '⚠️ 동기화 실패';
+            console.error('Firebase 저장 오류:', e);
         }
     }
+
+    async function loadFromFirebase(name) {
+        try {
+            const doc = await db.collection('members').doc(name).get();
+            if (doc.exists) {
+                const data = doc.data();
+                myData.schedule = data.schedule || {};
+                myData.orders = data.orders || [];
+            }
+            document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
+        } catch (e) {
+            console.error('Firebase 로드 오류:', e);
+            document.getElementById('syncStatus').textContent = '⚠️ 불러오기 실패';
+        }
+    }
+
+    async function loadMembersList() {
+        try {
+            const snapshot = await db.collection('members').get();
+            const members = [];
+            snapshot.forEach(doc => members.push(doc.data()));
+            if (members.length > 0) {
+                document.getElementById('existingMembers').style.display = 'block';
+                const sel = document.getElementById('selectMember');
+                sel.innerHTML = '<option value="">-- 기존 팀원 선택 --</option>';
+                members.forEach(m => {
+                    sel.innerHTML += `<option value="${m.name}" data-role="${m.role||''}">${m.name} (${m.role||''})</option>`;
+                });
+            }
+        } catch (e) {
+            console.error('팀원 목록 로드 오류:', e);
+        }
+    }
+
     function onSelectMember() {
         const sel = document.getElementById('selectMember');
         const opt = sel.options[sel.selectedIndex];
@@ -338,23 +368,15 @@
             document.getElementById('loginRole').value = opt.dataset.role || '';
         }
     }
-    function login() {
+
+    async function login() {
         const name = document.getElementById('loginName').value.trim();
         const role = document.getElementById('loginRole').value.trim();
         if (!name) return alert('이름을 입력하세요.');
         currentUser = { name, role };
-        localStorage.setItem('currentMember', JSON.stringify(currentUser));
 
-        let members = JSON.parse(localStorage.getItem('team_members') || '[]');
-        if (!members.find(m => m.name === name)) {
-            members.push({ name, role });
-            localStorage.setItem('team_members', JSON.stringify(members));
-        }
-
-        const saved = localStorage.getItem(`data_${name}`);
-        myData = saved ? JSON.parse(saved) : { schedule: {}, orders: [] };
-        if (!myData.orders) myData.orders = [];
-        if (!myData.schedule) myData.schedule = {};
+        myData = { schedule: {}, orders: [] };
+        await loadFromFirebase(name);
 
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
@@ -362,22 +384,17 @@
         render();
         renderOrders();
     }
+
     function logout() {
-        saveMyData();
         currentUser = null;
         document.getElementById('loginScreen').style.display = '';
         document.getElementById('app').style.display = 'none';
         loadMembersList();
     }
-    function saveMyData() {
-        if (currentUser) localStorage.setItem(`data_${currentUser.name}`, JSON.stringify(myData));
-    }
 
-    // Week nav
     function changeWeek(dir) { currentWeekStart.setDate(currentWeekStart.getDate()+dir*7); render(); }
     function goToday() { currentWeekStart = getMonday(new Date()); render(); }
 
-    // Schedule render
     function render() {
         const end = new Date(currentWeekStart); end.setDate(end.getDate()+6);
         document.getElementById('weekLabel').textContent =
@@ -434,15 +451,15 @@
         const dk = dateKey(getDateForDay(dayIdx));
         if (!myData.schedule[dk]) myData.schedule[dk] = [];
         myData.schedule[dk].push({ type, content });
-        saveMyData(); input.value = ''; render();
+        saveToFirebase();
+        input.value = ''; render();
     }
     function removeTask(dk, idx) {
         myData.schedule[dk].splice(idx, 1);
         if (myData.schedule[dk].length === 0) delete myData.schedule[dk];
-        saveMyData(); render();
+        saveToFirebase(); render();
     }
 
-    // Orders
     function renderOrders() {
         const list = document.getElementById('orderList');
         if (myData.orders.length === 0) {
@@ -464,12 +481,8 @@
         list.innerHTML = `
             <table class="order-table">
                 <thead><tr>
-                    <th style="width:40px">No</th>
-                    <th>협력업체</th>
-                    <th>발주 내용</th>
-                    <th style="text-align:right">금액</th>
-                    <th style="width:100px">등록일</th>
-                    <th style="width:40px"></th>
+                    <th style="width:40px">No</th><th>협력업체</th><th>발주 내용</th>
+                    <th style="text-align:right">금액</th><th style="width:100px">등록일</th><th style="width:40px"></th>
                 </tr></thead>
                 <tbody>
                     ${rows}
@@ -492,7 +505,7 @@
             vendor, description: desc, amount,
             date: new Date().toISOString().slice(0,10)
         });
-        saveMyData();
+        saveToFirebase();
         document.getElementById('orderVendor').value = '';
         document.getElementById('orderDesc').value = '';
         document.getElementById('orderAmount').value = '';
@@ -501,30 +514,11 @@
     function removeOrder(idx) {
         if (!confirm('이 발주를 삭제하시겠습니까?')) return;
         myData.orders.splice(idx, 1);
-        saveMyData(); renderOrders();
+        saveToFirebase(); renderOrders();
     }
 
-    // Export
-    function exportMyData() {
-        const exportObj = {
-            member: currentUser,
-            schedule: myData.schedule,
-            orders: myData.orders,
-            exportedAt: new Date().toISOString()
-        };
-        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `일정_${currentUser.name}_${dateKey(new Date())}.json`;
-        a.click();
-    }
+    function esc(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
 
-    function esc(str) {
-        const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
-    }
-
-    const saved = localStorage.getItem('currentMember');
-    if (saved) { const u = JSON.parse(saved); document.getElementById('loginName').value = u.name; document.getElementById('loginRole').value = u.role||''; }
     loadMembersList();
 </script>
 </body>
