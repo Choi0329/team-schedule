@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 주간 일정 입력</title>
     <script src="auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background: #f0f2f5; min-height: 100vh; }
@@ -274,6 +272,8 @@
     </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
     const DAYS = ['월','화','수','목','금','토','일'];
@@ -310,41 +310,51 @@
     async function saveToFirebase() {
         if (!currentUser || !firebaseReady) return;
         try {
-            await db.collection('members').doc(currentUser.name).set({
-                name: currentUser.name,
-                role: currentUser.role,
-                schedule: myData.schedule,
-                orders: myData.orders,
-                updatedAt: new Date().toISOString()
-            });
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
+            await Promise.race([
+                db.collection('members').doc(currentUser.name).set({
+                    name: currentUser.name,
+                    role: currentUser.role,
+                    schedule: myData.schedule,
+                    orders: myData.orders,
+                    updatedAt: new Date().toISOString()
+                }),
+                timeout
+            ]);
             document.getElementById('syncStatus').textContent = '☁️ 저장 완료';
             setTimeout(() => {
                 document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
             }, 2000);
         } catch (e) {
-            document.getElementById('syncStatus').textContent = '⚠️ 동기화 실패';
+            document.getElementById('syncStatus').textContent = '⚠️ 저장 실패';
             console.error('Firebase 저장 오류:', e);
         }
     }
 
-    async function loadFromFirebase(name) {
+    async function loadFromFirebase(name, retries) {
+        if (retries === undefined) retries = 3;
         if (!firebaseReady) {
             document.getElementById('syncStatus').textContent = '⚠️ 클라우드 연결 실패 (오프라인 모드)';
             return;
         }
-        try {
-            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
-            const doc = await Promise.race([db.collection('members').doc(name).get(), timeout]);
-            if (doc.exists) {
-                const data = doc.data();
-                myData.schedule = data.schedule || {};
-                myData.orders = data.orders || [];
+        for (let i = 0; i < retries; i++) {
+            try {
+                document.getElementById('syncStatus').textContent = i > 0 ? `🔄 재시도 중... (${i+1}/${retries})` : '☁️ 동기화 중...';
+                const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
+                const doc = await Promise.race([db.collection('members').doc(name).get(), timeout]);
+                if (doc.exists) {
+                    const data = doc.data();
+                    myData.schedule = data.schedule || {};
+                    myData.orders = data.orders || [];
+                }
+                document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
+                return;
+            } catch (e) {
+                console.error(`Firebase 로드 오류 (시도 ${i+1}/${retries}):`, e);
+                if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
             }
-            document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
-        } catch (e) {
-            console.error('Firebase 로드 오류:', e);
-            document.getElementById('syncStatus').textContent = '⚠️ 동기화 실패 (오프라인 모드)';
         }
+        document.getElementById('syncStatus').textContent = '⚠️ 동기화 실패 (오프라인 모드)';
     }
 
     async function loadMembersList() {
