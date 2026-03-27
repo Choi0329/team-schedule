@@ -4,8 +4,8 @@ const firebaseConfig = {
     authDomain: "team-chedule-2064b.firebaseapp.com",
     projectId: "team-chedule-2064b",
     storageBucket: "team-chedule-2064b.firebasestorage.app",
-    messagingSenderId: "",
-    appId: ""
+    messagingSenderId: "514102029910",
+    appId: "1:514102029910:web:ab02155783a973307b15f7"
 };
 
 firebase.initializeApp(firebaseConfig);
