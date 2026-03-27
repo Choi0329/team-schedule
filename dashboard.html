@@ -257,7 +257,12 @@
         }
 
         // 실시간 Firebase 리스너
-        db.collection('members').onSnapshot(snapshot => {
+        if (!firebaseReady) {
+            document.getElementById('syncStatus').textContent = '⚠️ 클라우드 연결 실패';
+            renderSchedule();
+            renderOrders();
+        }
+        firebaseReady && db.collection('members').onSnapshot(snapshot => {
             teamData = { members: [], schedules: {}, orders: {} };
             snapshot.forEach(doc => {
                 const data = doc.data();

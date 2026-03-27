@@ -308,7 +308,7 @@
 
     // Firebase 저장/불러오기
     async function saveToFirebase() {
-        if (!currentUser) return;
+        if (!currentUser || !firebaseReady) return;
         try {
             await db.collection('members').doc(currentUser.name).set({
                 name: currentUser.name,
@@ -328,6 +328,10 @@
     }
 
     async function loadFromFirebase(name) {
+        if (!firebaseReady) {
+            document.getElementById('syncStatus').textContent = '⚠️ 클라우드 연결 실패';
+            return;
+        }
         try {
             const doc = await db.collection('members').doc(name).get();
             if (doc.exists) {
@@ -343,6 +347,7 @@
     }
 
     async function loadMembersList() {
+        if (!firebaseReady) return;
         try {
             const snapshot = await db.collection('members').get();
             const members = [];
