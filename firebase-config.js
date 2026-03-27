@@ -14,7 +14,7 @@ try {
 
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
-    db.settings({ experimentalForceLongPolling: true, merge: true });
+    db.settings({ experimentalAutoDetectLongPolling: true });
     firebaseReady = true;
 } catch (e) {
     console.error('Firebase 초기화 실패:', e);
