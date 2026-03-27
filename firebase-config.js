@@ -5,9 +5,9 @@ let firebaseReady = false;
 try {
     const firebaseConfig = {
         apiKey: "AIzaSyB-190xUEMSh12Qz2CgtrxqNBHzwXJQyR0",
-        authDomain: "team-chedule-2064b.firebaseapp.com",
-        projectId: "team-chedule-2064b",
-        storageBucket: "team-chedule-2064b.firebasestorage.app",
+        authDomain: "team-schedule-2046b.firebaseapp.com",
+        projectId: "team-schedule-2046b",
+        storageBucket: "team-schedule-2046b.firebasestorage.app",
         messagingSenderId: "514102029910",
         appId: "1:514102029910:web:ab02155783a973307b15f7"
     };
