@@ -237,7 +237,7 @@
             date.setHours(0,0,0,0);
             return date;
         }
-        function dk(d) { return d.toISOString().slice(0,10); }
+        function dk(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
         function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
         function getDateForDay(i) { const d = new Date(currentWeekStart); d.setDate(d.getDate()+i); return d; }
         function formatNumber(n) { return Number(n).toLocaleString('ko-KR'); }
@@ -389,7 +389,7 @@
                     </tr>`;
                 });
                 rows += `<tr class="grand-total-row">
-                    <td colspan="4" style="text-align:right">총 발주 합계</td>
+                    <td colspan="3" style="text-align:right">총 발주 합계</td>
                     <td class="amount">${formatNumber(grandTotal)}원</td><td></td>
                 </tr>`;
                 area.innerHTML = `<table class="otable">

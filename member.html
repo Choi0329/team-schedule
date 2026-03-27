@@ -290,7 +290,7 @@
         date.setHours(0,0,0,0);
         return date;
     }
-    function dateKey(d) { return d.toISOString().slice(0,10); }
+    function dateKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
     function fmt(d) { return `${d.getMonth()+1}/${d.getDate()}`; }
     function getDateForDay(i) { const d = new Date(currentWeekStart); d.setDate(d.getDate()+i); return d; }
     function formatNumber(n) { return Number(n).toLocaleString('ko-KR'); }
@@ -329,11 +329,12 @@
 
     async function loadFromFirebase(name) {
         if (!firebaseReady) {
-            document.getElementById('syncStatus').textContent = '⚠️ 클라우드 연결 실패';
+            document.getElementById('syncStatus').textContent = '⚠️ 클라우드 연결 실패 (오프라인 모드)';
             return;
         }
         try {
-            const doc = await db.collection('members').doc(name).get();
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+            const doc = await Promise.race([db.collection('members').doc(name).get(), timeout]);
             if (doc.exists) {
                 const data = doc.data();
                 myData.schedule = data.schedule || {};
@@ -342,7 +343,7 @@
             document.getElementById('syncStatus').textContent = '☁️ 클라우드 동기화 됨';
         } catch (e) {
             console.error('Firebase 로드 오류:', e);
-            document.getElementById('syncStatus').textContent = '⚠️ 불러오기 실패';
+            document.getElementById('syncStatus').textContent = '⚠️ 동기화 실패 (오프라인 모드)';
         }
     }
 
@@ -357,7 +358,11 @@
                 const sel = document.getElementById('selectMember');
                 sel.innerHTML = '<option value="">-- 기존 팀원 선택 --</option>';
                 members.forEach(m => {
-                    sel.innerHTML += `<option value="${m.name}" data-role="${m.role||''}">${m.name} (${m.role||''})</option>`;
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.dataset.role = m.role || '';
+                    opt.textContent = `${m.name} (${m.role||''})`;
+                    sel.appendChild(opt);
                 });
             }
         } catch (e) {
@@ -381,11 +386,15 @@
         currentUser = { name, role };
 
         myData = { schedule: {}, orders: [] };
-        await loadFromFirebase(name);
 
+        // 앱을 먼저 보여주고, Firebase 데이터는 백그라운드에서 로드
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
         document.getElementById('userInfo').textContent = `${name} · ${role}`;
+        render();
+        renderOrders();
+
+        await loadFromFirebase(name);
         render();
         renderOrders();
     }
