@@ -5,9 +5,10 @@ let firebaseReady = false;
 try {
     const firebaseConfig = {
         apiKey: "AIzaSyB-190xUEMSh12Qz2CgtrxqNBHzwXJQyR0",
-        authDomain: "team-schedule-2046b.firebaseapp.com",
-        projectId: "team-schedule-2046b",
-        storageBucket: "team-schedule-2046b.firebasestorage.app",
+        authDomain: "team-schedule-2064b.firebaseapp.com",
+        databaseURL: "https://team-schedule-2064b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "team-schedule-2064b",
+        storageBucket: "team-schedule-2064b.firebasestorage.app",
         messagingSenderId: "514102029910",
         appId: "1:514102029910:web:ab02155783a973307b15f7"
     };
