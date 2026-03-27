@@ -166,7 +166,7 @@
         <header>
             <div>
                 <h1>📊 미디어스페이스 시공개발팀 통합 대시보드</h1>
-                <div class="subtitle">모든 팀원의 일정과 발주를 실시간으로 확인</div>
+                <div class="subtitle">모든 팀원의 일정과 결재를 실시간으로 확인</div>
             </div>
             <div class="header-actions">
                 <span class="realtime-badge">🟢 실시간 동기화</span>
@@ -177,7 +177,7 @@
 
         <div class="tab-bar">
             <button class="tab-btn active" onclick="switchTab('schedule')">📅 주간 일정</button>
-            <button class="tab-btn" onclick="switchTab('orders')">🧾 발주 현황</button>
+            <button class="tab-btn" onclick="switchTab('orders')">🧾 결재 현황</button>
         </div>
 
         <div class="tab-content active" id="tab-schedule">
@@ -207,7 +207,7 @@
         <div class="tab-content" id="tab-orders">
             <div class="order-stats" id="orderStats"></div>
             <div class="order-table-wrap">
-                <h3>📦 팀 전체 발주 현황</h3>
+                <h3>📦 팀 전체 결재 현황</h3>
                 <div id="orderTableArea"></div>
             </div>
             <div class="order-table-wrap">
@@ -359,13 +359,13 @@
 
             const vendorCount = Object.keys(vendorMap).length;
             document.getElementById('orderStats').innerHTML = `
-                <div class="order-stat-card"><div class="label">총 발주 건수</div><div class="value">${allOrders.length}건</div></div>
+                <div class="order-stat-card"><div class="label">총 결재 건수</div><div class="value">${allOrders.length}건</div></div>
                 <div class="order-stat-card"><div class="label">협력업체 수</div><div class="value">${vendorCount}곳</div></div>
-                <div class="order-stat-card"><div class="label">총 발주 금액</div><div class="value total">${formatNumber(grandTotal)}원</div></div>`;
+                <div class="order-stat-card"><div class="label">총 결재 금액</div><div class="value total">${formatNumber(grandTotal)}원</div></div>`;
 
             const area = document.getElementById('orderTableArea');
             if (allOrders.length === 0) {
-                area.innerHTML = '<div class="no-data">등록된 발주가 없습니다</div>';
+                area.innerHTML = '<div class="no-data">등록된 결재가 없습니다</div>';
             } else {
                 let rows = '';
                 teamData.members.forEach((m, mIdx) => {
@@ -380,21 +380,22 @@
                             <td>${esc(o.vendor)}</td>
                             <td>${esc(o.description)}</td>
                             <td class="amount">${formatNumber(o.amount)}원</td>
+                            <td>${o.dueDate||''}</td>
                             <td>${o.date||''}</td>
                         </tr>`;
                     });
                     rows += `<tr class="subtotal-row">
                         <td colspan="3" style="text-align:right">${esc(m.name)} 소계</td>
-                        <td class="amount">${formatNumber(subtotal)}원</td><td></td>
+                        <td class="amount">${formatNumber(subtotal)}원</td><td></td><td></td>
                     </tr>`;
                 });
                 rows += `<tr class="grand-total-row">
-                    <td colspan="3" style="text-align:right">총 발주 합계</td>
-                    <td class="amount">${formatNumber(grandTotal)}원</td><td></td>
+                    <td colspan="3" style="text-align:right">총 결재 합계</td>
+                    <td class="amount">${formatNumber(grandTotal)}원</td><td></td><td></td>
                 </tr>`;
                 area.innerHTML = `<table class="otable">
-                    <thead><tr><th style="width:100px">팀원</th><th>협력업체</th><th>발주 내용</th>
-                    <th style="text-align:right;width:140px">금액</th><th style="width:100px">등록일</th></tr></thead>
+                    <thead><tr><th style="width:100px">팀원</th><th>협력업체</th><th>결재 내용</th>
+                    <th style="text-align:right;width:140px">금액</th><th style="width:110px">결재 예정일</th><th style="width:100px">등록일</th></tr></thead>
                     <tbody>${rows}</tbody></table>`;
             }
 
@@ -426,7 +427,7 @@
                 </tr>`;
                 vArea.innerHTML = `<table class="otable">
                     <thead><tr><th style="width:40px">No</th><th>협력업체</th><th style="width:80px">건수</th>
-                    <th>발주 팀원</th><th style="text-align:right;width:140px">합계 금액</th><th style="width:160px">비중</th></tr></thead>
+                    <th>결재 팀원</th><th style="text-align:right;width:140px">합계 금액</th><th style="width:160px">비중</th></tr></thead>
                     <tbody>${vRows}</tbody></table>`;
             }
         }

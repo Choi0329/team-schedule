@@ -218,7 +218,7 @@
 <div class="app" id="app">
     <div class="top-bar">
         <div>
-            <h1>📝 미디어스페이스 시공개발팀 주간 일정 / 발주 계획</h1>
+            <h1>📝 미디어스페이스 시공개발팀 주간 일정 / 결재 계획</h1>
             <div class="user-info" id="userInfo"></div>
         </div>
         <div class="top-bar-actions">
@@ -229,7 +229,7 @@
 
     <div class="tab-bar">
         <button class="tab-btn active" onclick="switchTab('schedule')">📅 주간 일정</button>
-        <button class="tab-btn" onclick="switchTab('orders')">🧾 발주 계획</button>
+        <button class="tab-btn" onclick="switchTab('orders')">🧾 결재 계획</button>
     </div>
 
     <div class="tab-content active" id="tab-schedule">
@@ -244,31 +244,35 @@
 
     <div class="tab-content" id="tab-orders">
         <div class="order-section">
-            <h3>📦 발주 등록</h3>
+            <h3>📦 결재 등록</h3>
             <div class="order-form">
                 <div class="field">
                     <label>협력업체</label>
                     <input type="text" id="orderVendor" placeholder="업체명" style="width:180px">
                 </div>
                 <div class="field">
-                    <label>발주 내용</label>
-                    <input type="text" id="orderDesc" placeholder="발주 내용" style="width:220px">
+                    <label>결재 내용</label>
+                    <input type="text" id="orderDesc" placeholder="결재 내용" style="width:220px">
                 </div>
                 <div class="field">
-                    <label>발주 금액 (원)</label>
+                    <label>결재 금액 (원)</label>
                     <input type="text" id="orderAmount" placeholder="예: 1500000" style="width:160px" oninput="formatAmountInput(this)" onkeydown="if(event.key==='Enter') addOrder()">
+                </div>
+                <div class="field">
+                    <label>결재 예정일</label>
+                    <input type="date" id="orderDueDate" style="width:160px">
                 </div>
                 <button onclick="addOrder()">+ 추가</button>
             </div>
         </div>
         <div class="order-section">
-            <h3>📋 내 발주 목록</h3>
+            <h3>📋 내 결재 목록</h3>
             <div id="orderList"></div>
         </div>
     </div>
 
     <div class="notice">
-        <strong>☁️ 클라우드 자동 동기화:</strong> 일정과 발주를 입력하면 자동으로 저장됩니다. 별도로 내보내기할 필요 없이 관리자 대시보드에서 바로 확인 가능합니다.
+        <strong>☁️ 클라우드 자동 동기화:</strong> 일정과 결재를 입력하면 자동으로 저장됩니다. 별도로 내보내기할 필요 없이 관리자 대시보드에서 바로 확인 가능합니다.
     </div>
 </div>
 
@@ -487,7 +491,7 @@
     function renderOrders() {
         const list = document.getElementById('orderList');
         if (myData.orders.length === 0) {
-            list.innerHTML = '<div class="no-orders">등록된 발주가 없습니다</div>';
+            list.innerHTML = '<div class="no-orders">등록된 결재가 없습니다</div>';
             return;
         }
         const total = myData.orders.reduce((s, o) => s + o.amount, 0);
@@ -498,6 +502,7 @@
                 <td>${esc(o.vendor)}</td>
                 <td>${esc(o.description)}</td>
                 <td class="amount">${formatNumber(o.amount)}원</td>
+                <td>${o.dueDate || ''}</td>
                 <td>${o.date || ''}</td>
                 <td><button class="remove-btn" onclick="removeOrder(${i})">✕</button></td>
             </tr>`;
@@ -505,15 +510,15 @@
         list.innerHTML = `
             <table class="order-table">
                 <thead><tr>
-                    <th style="width:40px">No</th><th>협력업체</th><th>발주 내용</th>
-                    <th style="text-align:right">금액</th><th style="width:100px">등록일</th><th style="width:40px"></th>
+                    <th style="width:40px">No</th><th>협력업체</th><th>결재 내용</th>
+                    <th style="text-align:right">금액</th><th style="width:110px">결재 예정일</th><th style="width:100px">등록일</th><th style="width:40px"></th>
                 </tr></thead>
                 <tbody>
                     ${rows}
                     <tr class="total-row">
                         <td colspan="3" style="text-align:right;">합계</td>
                         <td class="amount total-amount">${formatNumber(total)}원</td>
-                        <td colspan="2"></td>
+                        <td colspan="3"></td>
                     </tr>
                 </tbody>
             </table>`;
@@ -523,20 +528,22 @@
         const vendor = document.getElementById('orderVendor').value.trim();
         const desc = document.getElementById('orderDesc').value.trim();
         const amount = parseAmount(document.getElementById('orderAmount').value);
+        const dueDate = document.getElementById('orderDueDate').value;
         if (!vendor) return alert('협력업체를 입력하세요.');
-        if (!amount) return alert('발주 금액을 입력하세요.');
+        if (!amount) return alert('결재 금액을 입력하세요.');
         myData.orders.push({
-            vendor, description: desc, amount,
+            vendor, description: desc, amount, dueDate,
             date: new Date().toISOString().slice(0,10)
         });
         saveToFirebase();
         document.getElementById('orderVendor').value = '';
         document.getElementById('orderDesc').value = '';
         document.getElementById('orderAmount').value = '';
+        document.getElementById('orderDueDate').value = '';
         renderOrders();
     }
     function removeOrder(idx) {
-        if (!confirm('이 발주를 삭제하시겠습니까?')) return;
+        if (!confirm('이 결재를 삭제하시겠습니까?')) return;
         myData.orders.splice(idx, 1);
         saveToFirebase(); renderOrders();
     }
