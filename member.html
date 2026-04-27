@@ -115,11 +115,18 @@
             font-size: 11px; padding: 2px 8px; border-radius: 10px;
             font-weight: 500; flex-shrink: 0;
         }
-        .task-item .remove-btn {
+        .task-item .remove-btn, .task-item .edit-btn {
             background: none; border: none; cursor: pointer;
-            color: #ccc; font-size: 16px; padding: 0 4px;
+            color: #ccc; font-size: 14px; padding: 0 4px;
         }
         .task-item .remove-btn:hover { color: #dc3545; }
+        .task-item .edit-btn:hover { color: #667eea; }
+        .task-item.editing { background: #f5f5ff !important; padding: 6px; }
+        .task-item.editing select { padding: 4px 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; outline: none; background: white; }
+        .task-item.editing input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; }
+        .task-item.editing input:focus, .task-item.editing select:focus { border-color: #667eea; }
+        .task-item.editing .save-btn { background: #667eea; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .task-item.editing .cancel-btn { background: #eee; color: #555; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
 
         .type-work { background: #e3f2fd; }
         .type-work .task-type-badge { background: #bbdefb; color: #1565c0; }
@@ -179,11 +186,17 @@
             font-size: 15px; background: #f8f9fa;
         }
         .order-table .total-amount { color: #c62828; font-size: 16px; }
-        .order-table .remove-btn {
+        .order-table .remove-btn, .order-table .edit-btn {
             background: none; border: none; cursor: pointer;
-            color: #ccc; font-size: 15px;
+            color: #ccc; font-size: 14px; padding: 0 2px;
         }
         .order-table .remove-btn:hover { color: #dc3545; }
+        .order-table .edit-btn:hover { color: #667eea; }
+        .order-table tr.editing td { background: #f5f5ff; }
+        .order-table tr.editing input { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; }
+        .order-table tr.editing input:focus { border-color: #667eea; }
+        .order-table .save-btn { background: #667eea; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 2px; }
+        .order-table .cancel-btn { background: #eee; color: #555; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
         .no-orders { text-align: center; padding: 30px; color: #bbb; font-size: 14px; }
 
         .notice {
@@ -286,6 +299,8 @@
     let currentUser = null;
     let currentWeekStart = getMonday(new Date());
     let myData = { schedule: {}, orders: [] };
+    let editingTask = null; // { dk, idx }
+    let editingOrder = null; // idx
 
     function getMonday(d) {
         const date = new Date(d);
@@ -443,12 +458,28 @@
 
             let tasksHtml = '';
             tasks.forEach((t,tIdx) => {
-                tasksHtml += `
-                    <div class="task-item type-${t.type}">
-                        <span class="task-type-badge">${TYPE_LABEL[t.type]}</span>
-                        <span class="task-label">${esc(t.content) || TYPE_LABEL[t.type]}</span>
-                        <button class="remove-btn" onclick="removeTask('${dk}',${tIdx})">✕</button>
-                    </div>`;
+                const isEditing = editingTask && editingTask.dk === dk && editingTask.idx === tIdx;
+                if (isEditing) {
+                    tasksHtml += `
+                        <div class="task-item type-${t.type} editing">
+                            <select id="editType_${dk}_${tIdx}">
+                                <option value="work"${t.type==='work'?' selected':''}>업무</option>
+                                <option value="as"${t.type==='as'?' selected':''}>AS</option>
+                                <option value="leave"${t.type==='leave'?' selected':''}>휴가</option>
+                            </select>
+                            <input type="text" id="editContent_${dk}_${tIdx}" value="${esc(t.content)}" onkeydown="if(event.key==='Enter') saveEditTask('${dk}',${tIdx}); if(event.key==='Escape') cancelEditTask();">
+                            <button class="save-btn" onclick="saveEditTask('${dk}',${tIdx})">저장</button>
+                            <button class="cancel-btn" onclick="cancelEditTask()">취소</button>
+                        </div>`;
+                } else {
+                    tasksHtml += `
+                        <div class="task-item type-${t.type}">
+                            <span class="task-type-badge">${TYPE_LABEL[t.type]}</span>
+                            <span class="task-label">${esc(t.content) || TYPE_LABEL[t.type]}</span>
+                            <button class="edit-btn" onclick="startEditTask('${dk}',${tIdx})" title="수정">✏️</button>
+                            <button class="remove-btn" onclick="removeTask('${dk}',${tIdx})" title="삭제">✕</button>
+                        </div>`;
+                }
             });
 
             card.innerHTML = `
@@ -483,9 +514,27 @@
         input.value = ''; render();
     }
     function removeTask(dk, idx) {
+        if (!confirm('이 일정을 삭제하시겠습니까?')) return;
         myData.schedule[dk].splice(idx, 1);
         if (myData.schedule[dk].length === 0) delete myData.schedule[dk];
         saveToFirebase(); render();
+    }
+    function startEditTask(dk, idx) {
+        editingTask = { dk, idx };
+        render();
+        const input = document.getElementById(`editContent_${dk}_${idx}`);
+        if (input) { input.focus(); input.select(); }
+    }
+    function saveEditTask(dk, idx) {
+        const type = document.getElementById(`editType_${dk}_${idx}`).value;
+        const content = document.getElementById(`editContent_${dk}_${idx}`).value.trim();
+        myData.schedule[dk][idx] = { type, content };
+        editingTask = null;
+        saveToFirebase(); render();
+    }
+    function cancelEditTask() {
+        editingTask = null;
+        render();
     }
 
     function renderOrders() {
@@ -497,21 +546,39 @@
         const total = myData.orders.reduce((s, o) => s + o.amount, 0);
         let rows = '';
         myData.orders.forEach((o, i) => {
-            rows += `<tr>
-                <td>${i+1}</td>
-                <td>${esc(o.vendor)}</td>
-                <td>${esc(o.description)}</td>
-                <td class="amount">${formatNumber(o.amount)}원</td>
-                <td>${o.dueDate || ''}</td>
-                <td>${o.date || ''}</td>
-                <td><button class="remove-btn" onclick="removeOrder(${i})">✕</button></td>
-            </tr>`;
+            if (editingOrder === i) {
+                rows += `<tr class="editing">
+                    <td>${i+1}</td>
+                    <td><input type="text" id="editVendor_${i}" value="${esc(o.vendor)}"></td>
+                    <td><input type="text" id="editDesc_${i}" value="${esc(o.description||'')}"></td>
+                    <td><input type="text" id="editAmount_${i}" value="${formatNumber(o.amount)}" oninput="formatAmountInput(this)" style="text-align:right"></td>
+                    <td><input type="date" id="editDueDate_${i}" value="${o.dueDate||''}"></td>
+                    <td>${o.date || ''}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="save-btn" onclick="saveEditOrder(${i})">저장</button>
+                        <button class="cancel-btn" onclick="cancelEditOrder()">취소</button>
+                    </td>
+                </tr>`;
+            } else {
+                rows += `<tr>
+                    <td>${i+1}</td>
+                    <td>${esc(o.vendor)}</td>
+                    <td>${esc(o.description)}</td>
+                    <td class="amount">${formatNumber(o.amount)}원</td>
+                    <td>${o.dueDate || ''}</td>
+                    <td>${o.date || ''}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="edit-btn" onclick="startEditOrder(${i})" title="수정">✏️</button>
+                        <button class="remove-btn" onclick="removeOrder(${i})" title="삭제">✕</button>
+                    </td>
+                </tr>`;
+            }
         });
         list.innerHTML = `
             <table class="order-table">
                 <thead><tr>
                     <th style="width:40px">No</th><th>협력업체</th><th>결재 내용</th>
-                    <th style="text-align:right">금액</th><th style="width:110px">결재 예정일</th><th style="width:100px">등록일</th><th style="width:40px"></th>
+                    <th style="text-align:right">금액</th><th style="width:140px">결재 예정일</th><th style="width:100px">등록일</th><th style="width:110px"></th>
                 </tr></thead>
                 <tbody>
                     ${rows}
@@ -546,6 +613,30 @@
         if (!confirm('이 결재를 삭제하시겠습니까?')) return;
         myData.orders.splice(idx, 1);
         saveToFirebase(); renderOrders();
+    }
+    function startEditOrder(idx) {
+        editingOrder = idx;
+        renderOrders();
+        const v = document.getElementById(`editVendor_${idx}`);
+        if (v) { v.focus(); v.select(); }
+    }
+    function saveEditOrder(idx) {
+        const vendor = document.getElementById(`editVendor_${idx}`).value.trim();
+        const desc = document.getElementById(`editDesc_${idx}`).value.trim();
+        const amount = parseAmount(document.getElementById(`editAmount_${idx}`).value);
+        const dueDate = document.getElementById(`editDueDate_${idx}`).value;
+        if (!vendor) return alert('협력업체를 입력하세요.');
+        if (!amount) return alert('결재 금액을 입력하세요.');
+        myData.orders[idx] = {
+            ...myData.orders[idx],
+            vendor, description: desc, amount, dueDate
+        };
+        editingOrder = null;
+        saveToFirebase(); renderOrders();
+    }
+    function cancelEditOrder() {
+        editingOrder = null;
+        renderOrders();
     }
 
     function esc(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
